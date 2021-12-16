@@ -64,7 +64,18 @@ export const getCommitOid = async function (ref = "HEAD"): Promise<string> {
   // Even if this does go wrong, it's not a huge problem for the alerts to
   // reported on the merge commit.
   try {
-    let commitOid = "";
+    return await getCommitOidImpl(ref)
+  } catch (e) {
+    core.info(
+      `Failed to call git to get current commit. Continuing with data from environment: ${e}`
+    );
+    core.info((e as Error).stack || "NO STACK");
+    return getRequiredEnvParam("GITHUB_SHA");
+  }
+};
+
+const getCommitOidImpl = async function (ref = "HEAD"): Promise<string> {
+  let commitOid = "";
     await new toolrunner.ToolRunner(
       await safeWhich.safeWhich("git"),
       ["rev-parse", ref],
@@ -81,14 +92,34 @@ export const getCommitOid = async function (ref = "HEAD"): Promise<string> {
       }
     ).exec();
     return commitOid.trim();
+}
+
+// TODO Document
+export const determineMergeBaseCommitOid = async function (): Promise<string | undefined> {
+  if (process.env.GITHUB_EVENT_NAME !== "pull_request") {
+    return undefined
+  }
+
+  try {
+    // First assert that the expected merge is currently checked out.
+    var branchHead = await getCommitOidImpl("HEAD^2");
+    if (branchHead !== process.env.GITHUB_SHA) { //TODO: Double check, I am assuming the head triggers the worflow, not the merge
+      //TODO remove this debug info
+      core.info("branch head detected as: " + branchHead)
+      return undefined
+    }
+
+    // Now return the base parent
+    return await getCommitOidImpl("HEAD^1")
   } catch (e) {
     core.info(
-      `Failed to call git to get current commit. Continuing with data from environment: ${e}`
+      `Failed to call git to determine merge base. Continuing with data from environment: ${e}`
     );
     core.info((e as Error).stack || "NO STACK");
-    return getRequiredEnvParam("GITHUB_SHA");
+    return undefined;
   }
-};
+}
+
 
 interface WorkflowJobStep {
   run: any;

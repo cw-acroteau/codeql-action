@@ -284,7 +284,8 @@ export function buildPayload(
   checkoutURI: string,
   environment: string | undefined,
   toolNames: string[],
-  gitHubVersion: util.GitHubVersion
+  gitHubVersion: util.GitHubVersion,
+  baseCommitOid: string | undefined
 ) {
   if (util.isActions()) {
     const payloadObj = {
@@ -315,7 +316,7 @@ export function buildPayload(
           fs.readFileSync(process.env.GITHUB_EVENT_PATH, "utf8")
         );
         payloadObj.base_ref = `refs/heads/${githubEvent.pull_request.base.ref}`;
-        payloadObj.base_sha = githubEvent.pull_request.base.sha;
+        payloadObj.base_sha = baseCommitOid ?? githubEvent.pull_request.base.sha;
       }
     }
     return payloadObj;
@@ -385,7 +386,8 @@ async function uploadFiles(
     checkoutURI,
     environment,
     toolNames,
-    gitHubVersion
+    gitHubVersion,
+    await actionsUtil.determineMergeBaseCommitOid(),
   );
 
   // Log some useful debug info about the info

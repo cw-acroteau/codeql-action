@@ -57,7 +57,8 @@ test("validate correct payload used per version", async (t) => {
       "/opt/src",
       undefined,
       ["CodeQL", "eslint"],
-      version
+      version,
+      "baseCommit"
     );
     // Not triggered by a pull request
     t.falsy(payload.base_ref);
@@ -79,10 +80,11 @@ test("validate correct payload used per version", async (t) => {
       "/opt/src",
       undefined,
       ["CodeQL", "eslint"],
-      version
+      version,
+      "baseCommit"
     );
     t.deepEqual(payload.base_ref, "refs/heads/master");
-    t.deepEqual(payload.base_sha, "f95f852bd8fca8fcc58a9a2d6c842781e32a215e");
+    t.deepEqual(payload.base_sha, "baseCommit");
   }
 
   for (const version of oldVersions) {
@@ -96,7 +98,8 @@ test("validate correct payload used per version", async (t) => {
       "/opt/src",
       undefined,
       ["CodeQL", "eslint"],
-      version
+      version,
+      "baseCommit"
     );
     // These older versions won't expect these values
     t.falsy(payload.base_ref);
