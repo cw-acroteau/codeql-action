@@ -100,17 +100,46 @@ export const determineMergeBaseCommitOid = async function (): Promise<string | u
     return undefined
   }
 
-  try {
-    // First assert that the expected merge is currently checked out.
-    var branchHead = await getCommitOidImpl("HEAD^2");
-    if (branchHead !== process.env.GITHUB_SHA) { //TODO: Double check, I am assuming the head triggers the worflow, not the merge
-      //TODO remove this debug info
-      core.info("branch head detected as: " + branchHead)
-      return undefined
-    }
+  let mergeSha = getRequiredEnvParam("GITHUB_SHA");
 
-    // Now return the base parent
-    return await getCommitOidImpl("HEAD^1")
+  try {
+    let commitOid = "";
+    let baseOid = "";
+    let headOid = "";
+
+    await new toolrunner.ToolRunner(
+      await safeWhich.safeWhich("git"),
+      ["show", "-s", "--format=raw", mergeSha],
+      {
+        silent: true,
+        listeners: {
+          stdline: (data) => {
+            core.info("LINE: "+ data); //TODO remove debug line
+            if (data.startsWith("commit ") && commitOid == "") {
+              commitOid = data.substring(7)
+            } else if (data.startsWith("parent ")) {
+              if (baseOid == "") {
+                baseOid = data.substring(7);
+              } else if (headOid == "") {
+                headOid = data.substring(7);
+              }
+            }
+          },
+          stderr: (data) => {
+            process.stderr.write(data);
+          },
+        },
+      }
+    ).exec();
+
+    core.info("commitOid="+commitOid+" baseOid="+baseOid+" headOid="+headOid); //TODO remove debug line
+
+    // Let's confirm our assumptions
+    if (commitOid == mergeSha && headOid.length == 40 && baseOid.length == 40) {
+      return baseOid
+    }
+    return undefined
+
   } catch (e) {
     core.info(
       `Failed to call git to determine merge base. Continuing with data from environment: ${e}`
